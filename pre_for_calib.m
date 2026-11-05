@@ -68,3 +68,7 @@ stop(vid);
 delete(vid);
 close all;
 fprintf('=== CAPTURA FINALIZADA: Se guardaron %d imágenes en %s ===\n', imgCount, outputDir);
+
+%% Para Calibrar
+
+cameraCalibrator
