@@ -1,5 +1,5 @@
 % =========================================================================
-% SubScript a2_inspect_data: Inspect Recorded Kinect Frames (Corregido)
+% SubScript a2_inspect_data: Inspect Recorded Kinect Frames
 % Description: Loads the saved Kinect sequence and visualizes synchronized 
 %              RGB images alongside their corresponding 3D point clouds.
 % =========================================================================
@@ -12,8 +12,6 @@ if ~exist(dataFileName, 'file')
 end
 
 fprintf('Loading data from %s...\n', dataFileName);
-
-% CORRECCIÓN: Cargamos 'rectifiedImages' en lugar de 'colorImages'
 load(dataFileName, 'rectifiedImages', 'pointClouds');
 
 numFrames = length(pointClouds);
@@ -34,7 +32,7 @@ for i = 1:length(framesToInspect)
     
     % 1. Left Panel: RGB Image with horizontal mirror correction (fliplr)
     subplot(1, 2, 1);
-    imshow(fliplr(rectifiedImages{idx})); % CORRECCIÓN AQUÍ
+    imshow(fliplr(rectifiedImages{idx}));
     title(sprintf('RGB Image - Corrected (Frame %d)', idx), 'FontSize', 12);
     
     % 2. Right Panel: Point Cloud (Top-down view / YX plane)

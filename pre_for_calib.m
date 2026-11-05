@@ -1,40 +1,40 @@
 % =========================================================================
-% Script de Captura Corregido y Limpio: Calibración RGB (Kinect v2)
+% Corrected and Clean Capture Script: RGB Calibration (Kinect v2)
 % =========================================================================
 clear; clc; close all;
 
-% Limpiar cualquier objeto de video previo que pueda bloquear el sensor
+% Clear any previous video objects that might lock the sensor
 delete(imaqfind);
 
-% Crear carpeta de salida si no existe
+% Create output folder if it doesn't exist
 outputDir = fullfile('data', 'calibration_images');
 if ~exist(outputDir, 'dir')
     mkdir(outputDir);
 end
 
-% --- CONFIGURACIÓN KINECT V2 ---
+% --- KINECT V2 CONFIGURATION ---
 try
-    % Inicializar el Kinect v2 con el adaptador 'kinect' y dispositivo 1 (Color)
+    % Initialize Kinect v2 with the 'kinect' adapter and device 1 (Color)
     vid = videoinput('kinect', 1);
 catch
-    error('No se detectó el Kinect v2. Asegúrate de tener instalado el paquete de soporte de Image Acquisition Toolbox.');
+    error('Kinect v2 not detected. Make sure you have the Image Acquisition Toolbox Support Package installed.');
 end
 
-% Configuración del objeto de video para captura manual
+% Configure video object for manual capture
 set(vid, 'FramesPerTrigger', 1);
 set(vid, 'TriggerRepeat', Inf);
 triggerconfig(vid, 'manual');
 
-% Iniciar el flujo de video del sensor
+% Start the video stream from the sensor
 start(vid);
 
-disp('=== INSTRUCCIONES ===');
-disp('1. Coloca el tablero de ajedrez frente a la cámara.');
-disp('2. Presiona la barra ESPACIADORA para capturar una foto.');
-disp('3. Presiona Q para salir cuando tengas entre 15 y 20 fotos.');
+disp('=== INSTRUCTIONS ===');
+disp('1. Place the checkerboard pattern in front of the camera.');
+disp('2. Press the SPACEBAR to capture a photo.');
+disp('3. Press Q to exit when you have between 15 and 20 photos.');
 
 imgCount = 0;
-fig = figure('Name', 'Captura Calibración Kinect RGB', 'WindowState', 'maximized');
+fig = figure('Name', 'Kinect RGB Calibration Capture', 'WindowState', 'maximized');
 hImage = [];
 
 while ishandle(fig)
@@ -46,7 +46,7 @@ while ishandle(fig)
         set(hImage, 'CData', frame);
     end
     
-    title(sprintf('Imágenes capturadas: %d | Presiona ESPACIO para capturar, Q para salir', imgCount));
+    title(sprintf('Captured images: %d | Press SPACE to capture, Q to exit', imgCount));
     drawnow;
     
     if waitforbuttonpress
@@ -55,20 +55,20 @@ while ishandle(fig)
             imgCount = imgCount + 1;
             filename = fullfile(outputDir, sprintf('calib_img_%02d.png', imgCount));
             imwrite(frame, filename);
-            fprintf('¡Imagen %d guardada exitosamente en %s!\n', imgCount, filename);
+            fprintf('Image %d successfully saved to %s!\n', imgCount, filename);
         elseif strcmpi(key, 'q')
-            fprintf('Saliendo del modo de captura...\n');
+            fprintf('Exiting capture mode...\n');
             break;
         end
     end
 end
 
-% --- LIMPIEZA DE RECURSOS ---
+% --- RESOURCE CLEANUP ---
 stop(vid);
 delete(vid);
 close all;
-fprintf('=== CAPTURA FINALIZADA: Se guardaron %d imágenes en %s ===\n', imgCount, outputDir);
 
-%% Para Calibrar
+fprintf('=== CAPTURE COMPLETED: Saved %d images in %s ===\n', imgCount, outputDir);
 
+%% For Calibration
 cameraCalibrator

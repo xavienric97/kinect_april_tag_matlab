@@ -1,8 +1,8 @@
 % =========================================================================
-% Script 02: Estimate AprilTag Poses (Red de Tags con Solapamiento / Multi-Tag Bridge)
-% Description: Utiliza múltiples tags por fotograma para crear un mapa global 
-%              conectado, permitiendo que la cámara se mueva libremente sin perder 
-%              el origen aunque el primer tag desaparezca.
+% Script 02: Estimate AprilTag Poses (Overlapping Tag Network / Multi-Tag Bridge)
+% Description: Uses multiple tags per frame to create a connected global map, 
+%              allowing the camera to move freely without losing the origin 
+%              even if the first tag disappears.
 % =========================================================================
 clear; clc; close all;
 
@@ -15,10 +15,10 @@ tagFamily = 'tag36h11';
 tagSize = 0.173; 
 
 if ~exist(dataInputPath, 'file') || ~exist(calibPath, 'file')
-    error('Faltan archivos necesarios. Asegúrate de haber ejecutado el Script 01 y guardado cameraParams.mat en data/.');
+    error('Required files missing. Make sure you ran Script 01 and saved cameraParams.mat in data/.');
 end
 
-fprintf('Cargando secuencia de imágenes y parámetros de calibración...\n');
+fprintf('Loading image sequence and calibration parameters...\n');
 load(dataInputPath, 'rectifiedImages'); 
 load(calibPath, 'cameraParams');       
 
@@ -26,7 +26,7 @@ numFrames = length(rectifiedImages);
 cameraPoses = cell(1, numFrames);
 validFramesCount = 0;
 
-% Diccionario para almacenar la matriz 4x4 global de cada Tag ID encontrado
+% Dictionary to store the 4x4 global matrix for each detected Tag ID
 knownTagMatrices = containers.Map('KeyType', 'double', 'ValueType', 'any');
 globalAnchorID = [];
 
@@ -41,14 +41,14 @@ for i = 1:numFrames
     if ~isempty(id)
         matCamToGlobal = [];
 
-        % Si es el primer frame con tags, definimos el primer tag visto como el Origen Global Absoluto
+        % If it is the first frame with tags, define the first seen tag as the Absolute Global Origin
         if isempty(globalAnchorID)
             globalAnchorID = id(1);
-            knownTagMatrices(globalAnchorID) = eye(4); % Matriz identidad 4x4 (Origen 0,0,0)
-            fprintf('>>> [ORIGEN GLOBAL] Frame %d: Tag ID %d fijado como el ancla inicial.\n', i, globalAnchorID);
+            knownTagMatrices(globalAnchorID) = eye(4); % 4x4 Identity matrix (Origin 0,0,0)
+            fprintf('>>> [GLOBAL ORIGIN] Frame %d: Tag ID %d set as initial anchor.\n', i, globalAnchorID);
         end
 
-        % Buscar si alguno de los tags visibles en este frame YA es conocido en nuestro mapa global
+        % Check if any of the visible tags in this frame is already known in our global map
         knownTagInFrame = [];
         for j = 1:length(id)
             if isKey(knownTagMatrices, id(j))
@@ -58,34 +58,34 @@ for i = 1:numFrames
         end
 
         if ~isempty(knownTagInFrame)
-            % ¡Efecto Puente! Usamos el tag conocido para calcular la posición global de la cámara
+            % Bridge Effect! Use the known tag to compute the camera's global position
             tagID = id(knownTagInFrame);
             T_cam_tag = pose(knownTagInFrame);
-            mat_cam_tag = T_cam_tag.A;               % CORREGIDO: Usar .A para rigidtform3d
-            mat_global_tag = knownTagMatrices(tagID); % Matriz 4x4 global conocida
+            mat_cam_tag = T_cam_tag.A;               % Local 4x4 matrix
+            mat_global_tag = knownTagMatrices(tagID); % Known global 4x4 matrix
             
-            % Calcular la matriz global de la cámara usando álgebra matricial pura
+            % Compute the global camera matrix using pure matrix algebra
             matCamToGlobal = mat_global_tag * inv(mat_cam_tag);
             
-            fprintf('Frame %d/%d: Puente exitoso usando Tag ID %d conocido.\n', i, numFrames, tagID);
+            fprintf('Frame %d/%d: Successful bridge using known Tag ID %d.\n', i, numFrames, tagID);
         else
-            fprintf('Frame %d/%d: Advertencia - Ningún tag conocido en este frame todavía.\n', i, numFrames);
+            fprintf('Frame %d/%d: Warning - No known tags in this frame yet.\n', i, numFrames);
         end
 
-        % Si logramos ubicar la cámara, guardamos su pose y registramos los tags nuevos
+        % If we successfully located the camera, save its pose and register new tags
         if ~isempty(matCamToGlobal)
             cameraPoses{i} = rigidtform3d(matCamToGlobal);
             validFramesCount = validFramesCount + 1;
 
-            % Aprender y guardar la posición global de los demás tags visibles en este cuadro
+            % Learn and save the global position of other visible tags in this frame
             for j = 1:length(id)
                 tagID = id(j);
-                mat_cam_tag = pose(j).A;             % CORREGIDO: Usar .A para rigidtform3d
+                mat_cam_tag = pose(j).A;             
                 mat_global_tag = matCamToGlobal * mat_cam_tag;
                 
                 if ~isKey(knownTagMatrices, tagID)
                     knownTagMatrices(tagID) = mat_global_tag;
-                    fprintf('    -> Nuevo Tag ID %d conectado y registrado en el mapa global.\n', tagID);
+                    fprintf('    -> New Tag ID %d connected and registered in the global map.\n', tagID);
                 end
             end
         else
@@ -93,13 +93,13 @@ for i = 1:numFrames
         end
     else
         cameraPoses{i} = [];
-        fprintf('Frame %d/%d: No se detectaron AprilTags.\n', i, numFrames);
+        fprintf('Frame %d/%d: No AprilTags detected.\n', i, numFrames);
     end
 end
 
-% Guardar resultados
+% Save results
 save(dataOutputPath, 'cameraPoses', 'tagSize', 'globalAnchorID', '-v7.3');
 
-fprintf('\n=== PROCESO MULTI-TAG TERMINADO ===\n');
-fprintf('Poses globales válidas calculadas para %d de %d frames.\n', validFramesCount, numFrames);
+fprintf('\n=== MULTI-TAG PROCESS COMPLETED ===\n');
+fprintf('Valid global poses calculated for %d out of %d frames.\n', validFramesCount, numFrames);
 fprintf('Camera poses saved to: %s\n', dataOutputPath);

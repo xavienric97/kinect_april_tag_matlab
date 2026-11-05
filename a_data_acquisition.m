@@ -1,34 +1,34 @@
 % =========================================================================
-% Script 01 (Vista en Vivo + Captura por Botón de Mouse)
-% Description: Muestra video en vivo fluido. Haz clic en el botón de la 
-%              pantalla para capturar, y presiona 'Q' o cierra la ventana para salir.
+% Script 01 (Live View + Mouse Button Capture)
+% Description: Displays smooth live video. Click the on-screen button to 
+%              capture, and press 'Q' or close the window to exit.
 % =========================================================================
 clear; clc; close all;
 
-% 1. Limpiar objetos de video previos
+% 1. Clean up previous video objects
 delete(imaqfind);
 
-% 2. Cargar parámetros de calibración
+% 2. Load calibration parameters
 calibPath = fullfile('data', 'cameraParams.mat');
 if exist(calibPath, 'file')
     load(calibPath, 'cameraParams');
-    disp('¡Parámetros de calibración cargados exitosamente!');
+    disp('Calibration parameters loaded successfully!');
 else
-    error('No se encontró el archivo cameraParams.mat en la carpeta data.');
+    error('cameraParams.mat file not found in the data folder.');
 end
 
-% --- Configuración ---
-maxFrames = 15; % Límite de fotogramas deseados
+% --- Configuration ---
+maxFrames = 20; % Desired frame limit
 
-fprintf('Inicializando sensores Kinect v2...\n');
+fprintf('Initializing Kinect v2 sensors...\n');
 try
     colorCam = videoinput('kinect', 1);
     depthCam = videoinput('kinect', 2);
 catch
-    error('Kinect v2 no detectado o paquete de soporte no instalado.');
+    error('Kinect v2 not detected or support package not installed.');
 end
 
-% Configurar búferes para streaming continuo pero controlado
+% Configure buffers for continuous yet controlled streaming
 set([colorCam, depthCam], 'FramesPerTrigger', Inf);
 triggerconfig(colorCam, 'immediate');
 triggerconfig(depthCam, 'immediate');
@@ -36,19 +36,19 @@ triggerconfig(depthCam, 'immediate');
 start(colorCam);
 start(depthCam);
 
-% Preasignar celdas
+% Preallocate cells
 rectifiedImages = cell(1, maxFrames);
 depthMaps = cell(1, maxFrames);
 pointClouds = cell(1, maxFrames);
 
-% Crear la ventana de visualización en vivo optimizada
-fig = figure('Name', 'Kinect v2 - Captura por Botón', 'WindowState', 'maximized');
+% Create optimized live view window
+fig = figure('Name', 'Kinect v2 - Button Capture', 'WindowState', 'maximized');
 hImage = [];
 
-% --- CREAR EL BOTÓN DE CAPTURA EN LA INTERFAZ ---
-% Se ubica en la parte inferior central de la ventana
+% --- CREATE INTERFACE CAPTURE BUTTON ---
+% Positioned at the bottom center of the window
 btnCapture = uicontrol('Style', 'pushbutton', ...
-                       'String', 'CAPTURAR FOTO [CLICK]', ...
+                       'String', 'CAPTURE PHOTO [CLICK]', ...
                        'Units', 'normalized', ...
                        'Position', [0.35, 0.02, 0.3, 0.07], ...
                        'FontSize', 14, ...
@@ -57,108 +57,108 @@ btnCapture = uicontrol('Style', 'pushbutton', ...
                        'ForegroundColor', [1 1 1], ...
                        'Callback', @(~,~) captureFrameCallback());
 
-fprintf('\n=== VISTA EN VIVO CON BOTÓN ACTIVADA ===\n');
-fprintf('-> Enfoca tus AprilTags y haz CLIC en el botón verde de la pantalla para capturar.\n');
-fprintf('-> Presiona la tecla [Q] o cierra la ventana para terminar y guardar el archivo .mat\n\n');
+fprintf('\n=== LIVE VIEW WITH BUTTON ACTIVATED ===\n');
+fprintf('-> Focus your AprilTags and CLICK the green button on the screen to capture.\n');
+fprintf('-> Press the [Q] key or close the window to finish and save the .mat file\n\n');
 
 capturedCount = 0;
 running = true;
 lastColorImage = [];
 lastDepthMap = [];
 
-% Variable de comunicación compartida para el clic del botón
+% Shared communication variable for button click
 global triggerPressed;
 triggerPressed = false;
 
 while running && capturedCount < maxFrames && ishandle(fig)
     
-    % Si hay datos nuevos en la cámara, los leemos
+    % Read new data from the camera if available
     if colorCam.FramesAvailable > 0
         lastColorImage = getsnapshot(colorCam);
         if depthCam.FramesAvailable > 0
             lastDepthMap = getsnapshot(depthCam);
         end
         
-        % ¡CLAVE ANTI-RAM!: Vaciar el búfer acumulado
+        % ANTI-RAM KEY: Flush the accumulated buffer
         flushdata(colorCam);
         flushdata(depthCam);
         
-        % Rectificar para la visualización en vivo
+        % Rectify for live visualization
         rectifiedImage = undistortImage(lastColorImage, cameraParams);
         
-        % Mostrar imagen en tiempo real
+        % Display image in real time
         if isempty(hImage) || ~ishandle(hImage)
             hImage = imshow(rectifiedImage);
         else
             set(hImage, 'CData', rectifiedImage);
         end
         
-        title(sprintf('EN VIVO | Capturados: %d / %d | Haz clic en el botón inferior para capturar', ...
+        title(sprintf('LIVE | Captured: %d / %d | Click the bottom button to capture', ...
               capturedCount, maxFrames), 'Color', 'b', 'FontSize', 14);
     end
     
     drawnow limitrate;
     
-    % --- VERIFICAR SI HICIERON CLIC EN EL BOTÓN ---
+    % --- CHECK IF BUTTON WAS CLICKED ---
     if triggerPressed
-        triggerPressed = false; % Resetear indicador
+        triggerPressed = false; % Reset flag
         
         if ~isempty(lastColorImage) && ~isempty(lastDepthMap)
             capturedCount = capturedCount + 1;
             
-            % Guardar datos y generar nube de puntos
+            % Save data and generate point cloud
             rectifiedImages{capturedCount} = undistortImage(lastColorImage, cameraParams);
             depthMaps{capturedCount} = lastDepthMap;
             pointClouds{capturedCount} = pcfromkinect(depthCam, lastDepthMap, lastColorImage);
             
-            fprintf('>>> ¡[FOTO %d / %d] Capturada mediante clic y nube de puntos generada!\n', capturedCount, maxFrames);
+            fprintf('>>> [FRAME %d / %d] Captured via click and point cloud generated successfully!\n', capturedCount, maxFrames);
             
-            % Feedback visual temporal en el título
-            title(sprintf('¡FOTO %d CAPTURADA!', capturedCount), 'Color', 'g', 'FontSize', 16);
+            % Temporary visual feedback in title
+            title(sprintf('FRAME %d CAPTURED!', capturedCount), 'Color', 'g', 'FontSize', 16);
             drawnow;
             pause(0.5);
         else
-            fprintf('Advertencia: Aún no hay datos de video listos para capturar.\n');
+            fprintf('Warning: Video data not ready for capture yet.\n');
         end
     end
     
-    % Revisar opcionalmente si presionaron 'Q' para salir
+    % Optionally check if 'Q' was pressed to exit
     k = get(fig, 'CurrentCharacter');
     if ~isempty(k) && k ~= char(1)
         set(fig, 'CurrentCharacter', char(1));
         if lower(k) == 'q'
-            fprintf('Finalizando captura por decisión del usuario.\n');
+            fprintf('Finalizing capture by user request.\n');
             running = false;
         end
     end
 end
 
-% Limpieza segura del hardware
+% Safe hardware cleanup
 if ishandle(fig), close(fig); end
 stop(colorCam);
 stop(depthCam);
 delete(colorCam);
 delete(depthCam);
 
-% Recortar celdas si se salió antes del límite
+% Trim cells if exited before the limit
 if capturedCount < maxFrames
     rectifiedImages = rectifiedImages(1:capturedCount);
     depthMaps = depthMaps(1:capturedCount);
     pointClouds = pointClouds(1:capturedCount);
 end
 
-% Guardar archivo .mat final
+% Save final .mat file
 dataDir = fullfile(pwd, 'data');
 if ~exist(dataDir, 'dir'), mkdir(dataDir); end
 outputFileName = fullfile(dataDir, 'kinect_sequence.mat');
 save(outputFileName, 'rectifiedImages', 'depthMaps', 'pointClouds', '-v7.3');
 
-fprintf('\n=== SESIÓN DE CAPTURA FINALIZADA EXITOSAMENTE ===\n');
-fprintf('Se guardaron %d fotogramas limpios en: %s\n', length(rectifiedImages), outputFileName);
+fprintf('\n=== CAPTURE SESSION COMPLETED SUCCESSFULLY ===\n');
+fprintf('Saved %d clean frames to: %s\n', length(rectifiedImages), outputFileName);
 
 
-% --- FUNCIÓN DE CALLBACK DEL BOTÓN ---
+% --- BUTTON CALLBACK FUNCTION ---
 function captureFrameCallback()
     global triggerPressed;
-    triggerPressed = true; % Activa la bandera para que el bucle principal procese la foto
+    triggerPressed = true; % Activates flag for the main loop to process the photo
 end

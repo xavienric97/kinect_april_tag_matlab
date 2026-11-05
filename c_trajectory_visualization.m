@@ -2,8 +2,7 @@
 % Script 03: Trajectory Visualization
 % Description: Loads estimated camera poses and visualizes the 3D path 
 %              traversed by the Kinect sensor during the capture session.
-% ========================================================================
-
+% =========================================================================
 clear; clc; close all;
 
 % --- Configuration Parameters ---
